@@ -37,12 +37,12 @@ export async function POST(req: NextRequest) {
     const MAX_URLS = 100;
     const urlsToProcess = validUrls.slice(0, MAX_URLS);
 
-    // Extract API Keys from headers or request body
+    // Extract API Keys from headers or request body or env or default
     const serperApiKey =
       body.serperApiKey ||
       req.headers.get('x-serper-key') ||
       process.env.SERPER_API_KEY ||
-      '';
+      'd76aa31f4ddb56396a2095aaf418cd1c12b7e496';
 
     const googleApiKey =
       body.googleApiKey ||

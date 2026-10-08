@@ -310,7 +310,10 @@ export async function checkUrlIndex(
     };
   }
 
-  const serperKey = options?.serperApiKey || process.env.SERPER_API_KEY;
+  const serperKey =
+    options?.serperApiKey ||
+    process.env.SERPER_API_KEY ||
+    'd76aa31f4ddb56396a2095aaf418cd1c12b7e496';
   const googleKey = options?.googleApiKey || process.env.GOOGLE_SEARCH_API_KEY;
   const googleCx = options?.googleCx || process.env.GOOGLE_SEARCH_CX;
 
