@@ -9,6 +9,7 @@ export interface IndexCheckResult {
   status: IndexStatus;
   isIndexed: boolean | null;
   method: CheckMethod;
+  country?: string;
   title?: string;
   snippet?: string;
   matchedUrl?: string;
@@ -20,6 +21,7 @@ export interface IndexCheckResult {
 
 export interface ApiCheckRequest {
   urls: string[];
+  country?: string;
   serperApiKey?: string;
   googleApiKey?: string;
   googleCx?: string;

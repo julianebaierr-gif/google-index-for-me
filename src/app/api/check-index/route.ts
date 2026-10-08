@@ -56,6 +56,11 @@ export async function POST(req: NextRequest) {
       process.env.GOOGLE_SEARCH_CX ||
       '';
 
+    const country =
+      body.country ||
+      req.headers.get('x-country') ||
+      'us';
+
     // Process with concurrency limit (e.g., 5 at a time)
     const results: IndexCheckResult[] = [];
     const concurrency = 5;
@@ -65,6 +70,7 @@ export async function POST(req: NextRequest) {
       const batchResults = await Promise.all(
         batch.map((url) =>
           checkUrlIndex(url, {
+            country,
             serperApiKey: serperApiKey || undefined,
             googleApiKey: googleApiKey || undefined,
             googleCx: googleCx || undefined,

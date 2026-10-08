@@ -15,7 +15,6 @@ export function normalizeUrl(input: string): string {
 
   try {
     const parsed = new URL(url);
-    // Remove trailing slash if root path is empty
     return parsed.href;
   } catch {
     return url;
@@ -36,11 +35,12 @@ function getRandomUserAgent(): string {
 
 /**
  * 1. Check Index using Serper.dev API
- * Best method for Vercel: 2,500 free queries, zero CAPTCHA, fastest response.
+ * Targeted to Google USA (gl: 'us', hl: 'en')
  */
 async function checkWithSerper(
   url: string,
-  apiKey: string
+  apiKey: string,
+  country: string = 'us'
 ): Promise<Partial<IndexCheckResult>> {
   const query = `site:${url}`;
   const response = await fetch('https://google.serper.dev/search', {
@@ -52,6 +52,8 @@ async function checkWithSerper(
     body: JSON.stringify({
       q: query,
       num: 5,
+      gl: country, // e.g. 'us' for United States
+      hl: 'en',    // English
     }),
   });
 
@@ -67,50 +69,53 @@ async function checkWithSerper(
   const organic = data.organic || [];
 
   if (organic.length > 0) {
-    // Found organic results
     const first = organic[0];
     return {
       status: 'indexed',
       isIndexed: true,
       method: 'serper',
+      country,
       title: first.title || undefined,
       snippet: first.snippet || undefined,
       matchedUrl: first.link || undefined,
     };
   }
 
-  // Check if answerBox or knowledgeGraph exists
   if (data.answerBox || data.knowledgeGraph) {
     return {
       status: 'indexed',
       isIndexed: true,
       method: 'serper',
+      country,
       title: data.knowledgeGraph?.title || 'Google Knowledge Result',
       snippet: data.knowledgeGraph?.description || undefined,
     };
   }
 
-  // Zero results found
   return {
     status: 'not_indexed',
     isIndexed: false,
+    country,
     method: 'serper',
   };
 }
 
 /**
  * 2. Check Index using Google Custom Search JSON API
- * Official Google API: 100 free queries/day.
+ * Targeted to Google USA (gl: 'us', hl: 'en')
  */
 async function checkWithGoogleCse(
   url: string,
   apiKey: string,
-  cx: string
+  cx: string,
+  country: string = 'us'
 ): Promise<Partial<IndexCheckResult>> {
   const query = `site:${url}`;
   const endpoint = `https://www.googleapis.com/customsearch/v1?key=${encodeURIComponent(
     apiKey
-  )}&cx=${encodeURIComponent(cx)}&q=${encodeURIComponent(query)}`;
+  )}&cx=${encodeURIComponent(cx)}&q=${encodeURIComponent(query)}&gl=${encodeURIComponent(
+    country
+  )}&hl=en`;
 
   const response = await fetch(endpoint, {
     method: 'GET',
@@ -135,6 +140,7 @@ async function checkWithGoogleCse(
       status: 'indexed',
       isIndexed: true,
       method: 'google_cse',
+      country,
       title: first.title || undefined,
       snippet: first.snippet || undefined,
       matchedUrl: first.link || undefined,
@@ -144,16 +150,22 @@ async function checkWithGoogleCse(
   return {
     status: 'not_indexed',
     isIndexed: false,
+    country,
     method: 'google_cse',
   };
 }
 
 /**
- * 3. Fallback: Direct Google Scraping (Works on residential/local IPs, but Google blocks datacenter IPs like Vercel with CAPTCHA)
+ * 3. Fallback: Direct Google Scraping
  */
-async function checkWithDirectScrape(url: string): Promise<Partial<IndexCheckResult>> {
+async function checkWithDirectScrape(
+  url: string,
+  country: string = 'us'
+): Promise<Partial<IndexCheckResult>> {
   const query = `site:${url}`;
-  const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}&hl=en&gl=us&num=5`;
+  const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(
+    query
+  )}&hl=en&gl=${encodeURIComponent(country)}&pws=0&num=5`;
 
   try {
     const response = await fetch(searchUrl, {
@@ -189,6 +201,7 @@ async function checkWithDirectScrape(url: string): Promise<Partial<IndexCheckRes
         status: 'captcha_blocked',
         isIndexed: null,
         method: 'direct_scrape',
+        country,
         error:
           'Google anti-bot protection (CAPTCHA/JS Challenge) blocked direct automated scraping. Add a free Serper.dev API Key in Settings (2,500 free searches) or click "Verify on Google ↗".',
       };
@@ -196,7 +209,6 @@ async function checkWithDirectScrape(url: string): Promise<Partial<IndexCheckRes
 
     const $ = cheerio.load(html);
 
-    // Common indicators of 0 results in Google
     const notFoundPhrases = [
       'did not match any documents',
       "It looks like there aren't any results for",
@@ -212,12 +224,11 @@ async function checkWithDirectScrape(url: string): Promise<Partial<IndexCheckRes
       return {
         status: 'not_indexed',
         isIndexed: false,
+        country,
         method: 'direct_scrape',
       };
     }
 
-    // Check for search result titles/snippets
-    // Google uses various classes: div.g, div.tF2Cxc, h3
     const headings = $('h3');
     if (headings.length > 0) {
       const firstHeading = headings.first().text().trim();
@@ -227,31 +238,33 @@ async function checkWithDirectScrape(url: string): Promise<Partial<IndexCheckRes
         status: 'indexed',
         isIndexed: true,
         method: 'direct_scrape',
+        country,
         title: firstHeading || undefined,
         snippet: firstSnippet || undefined,
       };
     }
 
-    // If no explicit not found text and no h3, check if search result container exists
     const searchResults = $('#search, #rso');
     if (searchResults.length > 0 && searchResults.find('a').length > 0) {
       return {
         status: 'indexed',
         isIndexed: true,
+        country,
         method: 'direct_scrape',
       };
     }
 
-    // Default to not indexed if no results found
     return {
       status: 'not_indexed',
       isIndexed: false,
+      country,
       method: 'direct_scrape',
     };
   } catch (err: any) {
     return {
       status: 'error',
       isIndexed: null,
+      country,
       method: 'direct_scrape',
       error: err.message || 'Failed to fetch Google directly.',
     };
@@ -260,14 +273,12 @@ async function checkWithDirectScrape(url: string): Promise<Partial<IndexCheckRes
 
 /**
  * Main URL Index Verification Engine
- * Prioritizes:
- * 1. Serper API Key (Env or Header/Param)
- * 2. Google Custom Search Key (Env or Header/Param)
- * 3. Direct Scrape (with automated CAPTCHA detection)
+ * Explicitly queries Google USA (country: 'us')
  */
 export async function checkUrlIndex(
   rawUrl: string,
   options?: {
+    country?: string;
     serperApiKey?: string;
     googleApiKey?: string;
     googleCx?: string;
@@ -276,8 +287,12 @@ export async function checkUrlIndex(
   const cleanUrl = normalizeUrl(rawUrl);
   const now = new Date().toISOString();
   const id = Math.random().toString(36).substring(2, 9);
+  const country = options?.country || 'us'; // Default: USA (gl=us)
   const siteQuery = `site:${cleanUrl}`;
-  const googleSearchUrl = `https://www.google.com/search?q=${encodeURIComponent(siteQuery)}`;
+  // USA Google search URL with gl=us and hl=en
+  const googleSearchUrl = `https://www.google.com/search?q=${encodeURIComponent(
+    siteQuery
+  )}&gl=${encodeURIComponent(country)}&hl=en&pws=0`;
 
   if (!cleanUrl) {
     return {
@@ -287,6 +302,7 @@ export async function checkUrlIndex(
       status: 'error',
       isIndexed: null,
       method: 'manual',
+      country,
       siteQuery,
       googleSearchUrl,
       checkedAt: now,
@@ -299,9 +315,9 @@ export async function checkUrlIndex(
   const googleCx = options?.googleCx || process.env.GOOGLE_SEARCH_CX;
 
   try {
-    // 1. Serper.dev (Preferred & recommended)
+    // 1. Serper.dev (USA targeted)
     if (serperKey && serperKey.trim().length > 0) {
-      const result = await checkWithSerper(cleanUrl, serperKey.trim());
+      const result = await checkWithSerper(cleanUrl, serperKey.trim(), country);
       return {
         id,
         url: rawUrl,
@@ -309,6 +325,7 @@ export async function checkUrlIndex(
         siteQuery,
         googleSearchUrl,
         checkedAt: now,
+        country,
         status: result.status || 'not_indexed',
         isIndexed: result.isIndexed ?? false,
         method: 'serper',
@@ -318,9 +335,9 @@ export async function checkUrlIndex(
       };
     }
 
-    // 2. Google Custom Search Engine
+    // 2. Google Custom Search Engine (USA targeted)
     if (googleKey && googleCx && googleKey.trim() && googleCx.trim()) {
-      const result = await checkWithGoogleCse(cleanUrl, googleKey.trim(), googleCx.trim());
+      const result = await checkWithGoogleCse(cleanUrl, googleKey.trim(), googleCx.trim(), country);
       return {
         id,
         url: rawUrl,
@@ -328,6 +345,7 @@ export async function checkUrlIndex(
         siteQuery,
         googleSearchUrl,
         checkedAt: now,
+        country,
         status: result.status || 'not_indexed',
         isIndexed: result.isIndexed ?? false,
         method: 'google_cse',
@@ -338,7 +356,7 @@ export async function checkUrlIndex(
     }
 
     // 3. Fallback: Direct Scraping
-    const directResult = await checkWithDirectScrape(cleanUrl);
+    const directResult = await checkWithDirectScrape(cleanUrl, country);
     return {
       id,
       url: rawUrl,
@@ -346,6 +364,7 @@ export async function checkUrlIndex(
       siteQuery,
       googleSearchUrl,
       checkedAt: now,
+      country,
       status: directResult.status || 'not_indexed',
       isIndexed: directResult.isIndexed ?? null,
       method: 'direct_scrape',
@@ -362,6 +381,7 @@ export async function checkUrlIndex(
       siteQuery,
       googleSearchUrl,
       checkedAt: now,
+      country,
       status: 'error',
       isIndexed: null,
       method: 'manual',

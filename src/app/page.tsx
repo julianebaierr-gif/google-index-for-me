@@ -28,6 +28,7 @@ export default function HomePage() {
   const [activeTab, setActiveTab] = useState<'single' | 'bulk'>('single');
   const [singleUrl, setSingleUrl] = useState('');
   const [bulkUrls, setBulkUrls] = useState('');
+  const [selectedCountry, setSelectedCountry] = useState('us');
   const [isLoading, setIsLoading] = useState(false);
   const [results, setResults] = useState<IndexCheckResult[]>([]);
   const [filter, setFilter] = useState<'all' | 'indexed' | 'not_indexed' | 'issues'>('all');
@@ -48,9 +49,11 @@ export default function HomePage() {
       const savedSerper = localStorage.getItem('gic_serper_key') || '';
       const savedGoogleKey = localStorage.getItem('gic_google_key') || '';
       const savedGoogleCx = localStorage.getItem('gic_google_cx') || '';
+      const savedCountry = localStorage.getItem('gic_country') || 'us';
       setSerperApiKey(savedSerper);
       setGoogleApiKey(savedGoogleKey);
       setGoogleCx(savedGoogleCx);
+      setSelectedCountry(savedCountry);
     }
   }, []);
 
@@ -59,6 +62,7 @@ export default function HomePage() {
       localStorage.setItem('gic_serper_key', serperApiKey.trim());
       localStorage.setItem('gic_google_key', googleApiKey.trim());
       localStorage.setItem('gic_google_cx', googleCx.trim());
+      localStorage.setItem('gic_country', selectedCountry);
       setSettingsSaved(true);
       setTimeout(() => setSettingsSaved(false), 3000);
     }
@@ -79,13 +83,13 @@ export default function HomePage() {
           'x-google-key': googleApiKey.trim(),
           'x-google-cx': googleCx.trim(),
         },
-        body: JSON.stringify({ urls: ['https://google.com'] }),
+        body: JSON.stringify({ urls: ['https://google.com'], country: selectedCountry }),
       });
       const data = await res.json();
       if (res.ok && data.results && data.results.length > 0) {
         const item = data.results[0];
         if (item.status === 'indexed') {
-          setTestStatus(`✅ Success! Engine: ${item.method.toUpperCase()} connected successfully.`);
+          setTestStatus(`✅ Success! Engine: ${item.method.toUpperCase()} connected successfully from ${selectedCountry.toUpperCase()}.`);
         } else if (item.status === 'captcha_blocked') {
           setTestStatus('⚠️ Direct scraping was blocked. Please verify your API key is correct.');
         } else {
@@ -114,7 +118,7 @@ export default function HomePage() {
           'x-google-key': googleApiKey.trim(),
           'x-google-cx': googleCx.trim(),
         },
-        body: JSON.stringify({ urls: urlsToCheck }),
+        body: JSON.stringify({ urls: urlsToCheck, country: selectedCountry }),
       });
 
       const data = await res.json();
@@ -244,16 +248,51 @@ export default function HomePage() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Country Selector (USA Connected) */}
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border bg-white border-slate-200 text-slate-800 shadow-sm">
+              <span className="text-sm">
+                {selectedCountry === 'us'
+                  ? '🇺🇸'
+                  : selectedCountry === 'uk'
+                  ? '🇬🇧'
+                  : selectedCountry === 'ca'
+                  ? '🇨🇦'
+                  : selectedCountry === 'au'
+                  ? '🇦🇺'
+                  : selectedCountry === 'pk'
+                  ? '🇵🇰'
+                  : '🌐'}
+              </span>
+              <select
+                value={selectedCountry}
+                onChange={(e) => {
+                  setSelectedCountry(e.target.value);
+                  if (typeof window !== 'undefined') {
+                    localStorage.setItem('gic_country', e.target.value);
+                  }
+                }}
+                className="bg-transparent font-bold text-xs focus:outline-none cursor-pointer text-slate-800"
+                title="Google Region / Geolocation"
+              >
+                <option value="us">Google USA (US)</option>
+                <option value="uk">Google UK (UK)</option>
+                <option value="ca">Google Canada (CA)</option>
+                <option value="au">Google Australia (AU)</option>
+                <option value="pk">Google Pakistan (PK)</option>
+                <option value="in">Google India (IN)</option>
+              </select>
+            </div>
+
             {/* Active Engine Badge */}
-            <div className="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium border bg-slate-50 border-slate-200 text-slate-600">
+            <div className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border bg-slate-50 border-slate-200 text-slate-600">
               <span className={`w-2 h-2 rounded-full ${serperApiKey ? 'bg-emerald-500 animate-pulse' : googleApiKey ? 'bg-blue-500' : 'bg-amber-500'}`}></span>
               <span>
                 Engine:{' '}
                 <strong>
                   {serperApiKey
-                    ? 'Serper.dev (No CAPTCHA)'
+                    ? 'Serper (No CAPTCHA)'
                     : googleApiKey
-                    ? 'Google Official CSE'
+                    ? 'Google CSE'
                     : 'Direct Scraper'}
                 </strong>
               </span>
@@ -652,8 +691,11 @@ export default function HomePage() {
                           </span>
                         )}
 
-                        <span className="text-[11px] font-mono text-slate-400 uppercase">
-                          via {item.method}
+                        <span className="text-[11px] font-mono text-slate-500 uppercase flex items-center gap-1 bg-slate-100 px-2 py-0.5 rounded">
+                          <span>{item.country?.toUpperCase() === 'US' ? '🇺🇸' : item.country?.toUpperCase() === 'UK' ? '🇬🇧' : item.country?.toUpperCase() === 'CA' ? '🇨🇦' : '🌐'}</span>
+                          <span>{item.country?.toUpperCase() || 'US'} Google</span>
+                          <span>•</span>
+                          <span>via {item.method}</span>
                         </span>
                       </div>
 
