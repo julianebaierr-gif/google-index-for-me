@@ -336,6 +336,50 @@ export default function HomePage() {
           </p>
         </div>
 
+        {/* Quick API Key Activation Banner if No Key is Configured */}
+        {!serperApiKey && !googleApiKey && (
+          <div className="max-w-3xl mx-auto bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 border-2 border-amber-300 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">🔑</span>
+                <div>
+                  <h3 className="font-bold text-amber-950 text-sm sm:text-base">
+                    Google CAPTCHA Bypass (Activate 2,500 Free Searches)
+                  </h3>
+                  <p className="text-xs text-amber-800">
+                    Google blocks direct scraping. Sign up in 10s at Serper.dev with Google (No credit card needed) to enable 100% automated checking.
+                  </p>
+                </div>
+              </div>
+              <a
+                href="https://serper.dev"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm w-fit whitespace-nowrap"
+              >
+                1. Get Free Key (serper.dev) ↗
+              </a>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2 pt-1">
+              <input
+                type="password"
+                placeholder="2. Paste Serper API Key here..."
+                value={serperApiKey}
+                onChange={(e) => setSerperApiKey(e.target.value)}
+                className="flex-1 px-3.5 py-2.5 text-xs rounded-xl border border-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white font-mono text-slate-900"
+              />
+              <button
+                type="button"
+                onClick={saveSettings}
+                className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-all shadow-sm whitespace-nowrap"
+              >
+                {settingsSaved ? 'Saved & Activated! ✓' : 'Save & Activate'}
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Input Card with Tabs */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden max-w-3xl mx-auto">
           {/* Tabs */}
