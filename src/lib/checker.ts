@@ -175,10 +175,12 @@ async function checkWithDirectScrape(url: string): Promise<Partial<IndexCheckRes
 
     const html = await response.text();
 
-    // Check for Google CAPTCHA / Bot detection
+    // Check for Google CAPTCHA / Bot detection / JS challenges
     if (
       response.status === 429 ||
       html.includes('/sorry/index') ||
+      html.includes('enablejs') ||
+      html.includes('/httpservice/retry') ||
       html.includes('recaptcha') ||
       html.includes('detected unusual traffic') ||
       html.includes('unusual traffic from your computer network')
@@ -188,7 +190,7 @@ async function checkWithDirectScrape(url: string): Promise<Partial<IndexCheckRes
         isIndexed: null,
         method: 'direct_scrape',
         error:
-          'Google blocked this request with a CAPTCHA (Datacenter IP detection). To get 100% automated results, add a free Serper.dev API Key in Settings or click "Verify on Google".',
+          'Google anti-bot protection (CAPTCHA/JS Challenge) blocked direct automated scraping. Add a free Serper.dev API Key in Settings (2,500 free searches) or click "Verify on Google ↗".',
       };
     }
 
